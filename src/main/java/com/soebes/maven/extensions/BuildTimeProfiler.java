@@ -410,12 +410,14 @@ public class BuildTimeProfiler
         String filename = "";
         String body = "";
 
+        JSONObject document = toJSON();
+
         if (output != null)
         {
             switch (output.toLowerCase())
             {
                 case "json":
-                    body = toJSON().toString();
+                    body = document.toString();
                     filename = "report.json";
                     break;
                 case "stdout":
@@ -431,15 +433,17 @@ public class BuildTimeProfiler
             try (FileWriter file = new FileWriter(dest))
             {
                 file.write(body);
+                elasticsearchReporter.index(document);
                 return;
             }
             catch (IOException e)
             {
-                LOGGER.error("Couldn't write to file at {}: {}", dest, e.getMessage());
+                LOGGER.error("Couldn't save document: {}", e.getMessage());
                 return;
             }
         }
 
+        elasticsearchReporter.index(document);
         report(event);
     }
 

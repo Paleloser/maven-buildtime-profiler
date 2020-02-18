@@ -30,9 +30,10 @@ public class ElasticsearchReporter {
   public ElasticsearchReporter(String address, int port, String index) {
     this.index = index;
     this.client = new RestHighLevelClient(RestClient.builder(new HttpHost(address, port, "http")));
+    initIndex();
   }
 
-  public void initIndex()
+  private void initIndex()
   {
     try
     {

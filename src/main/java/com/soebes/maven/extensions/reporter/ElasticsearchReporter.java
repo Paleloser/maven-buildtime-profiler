@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Date;
+import java.util.List;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
@@ -67,7 +68,6 @@ public class ElasticsearchReporter {
     client.indices().create(request, RequestOptions.DEFAULT);
   }
 
-
   public void index(JSONObject doc)
   {
     if (doc == null)
@@ -88,6 +88,19 @@ public class ElasticsearchReporter {
     {
       LOGGER.error("Error indexing document: {}", e.getMessage());
     }
+  }
+
+  public void indexWithoutFields(JSONObject document, String[] fields)
+  {
+    for (String field : fields)
+    {
+      if (document.has(field))
+      {
+        document.remove(field);
+      }
+    }
+
+    index(document);
   }
 
   private void close()

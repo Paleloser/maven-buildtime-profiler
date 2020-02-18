@@ -22,6 +22,7 @@ package com.soebes.maven.extensions;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.security.SignedObject;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -97,6 +98,16 @@ public class BuildTimeProfiler
     private final ProjectTimer forkProject;
 
     private final ElasticsearchReporter elasticsearchReporter;
+
+    private final String[] ignoreReportFields = new String[]{
+        "download",
+        "metadata",
+        "build.plugins",
+        "install",
+        "fork-project",
+        "fork-time",
+        "goals"
+    };
 
     public BuildTimeProfiler()
     {
@@ -433,7 +444,7 @@ public class BuildTimeProfiler
             try (FileWriter file = new FileWriter(dest))
             {
                 file.write(body);
-                elasticsearchReporter.index(document);
+                elasticsearchReporter.indexWithoutFields(document, ignoreReportFields);
                 return;
             }
             catch (IOException e)
@@ -444,7 +455,7 @@ public class BuildTimeProfiler
         }
 
         report(event);
-        elasticsearchReporter.index(document);
+        elasticsearchReporter.indexWithoutFields(document, ignoreReportFields);
     }
 
     private void report(MavenExecutionResult event)

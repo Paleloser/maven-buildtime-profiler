@@ -19,7 +19,9 @@ package com.soebes.maven.extensions;
  * under the License.
  */
 
-import com.soebes.maven.extensions.reporter.ElasticsearchReporter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -38,6 +40,7 @@ import org.apache.maven.project.DependencyResolutionResult;
 import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.RepositoryEvent;
 import org.eclipse.aether.RepositoryEvent.EventType;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +50,7 @@ import com.soebes.maven.extensions.artifact.InstallTimer;
 import com.soebes.maven.extensions.metadata.MetadataDeploymentTimer;
 import com.soebes.maven.extensions.metadata.MetadataDownloadTimer;
 import com.soebes.maven.extensions.metadata.MetadataInstallTimer;
+import com.soebes.maven.extensions.reporter.ElasticsearchReporter;
 
 /**
  * @author Karl Heinz Marbaise <a href="mailto:kama@soebes.de">kama@soebes.de</a>
@@ -402,6 +406,45 @@ public class BuildTimeProfiler
 
     private void executionResultEventHandler( MavenExecutionResult event )
     {
+        String output = event.getProject().getProperties().getProperty("maven-buildtime-profiler-output");
+        String filename = "";
+        String body = "";
+
+        if (output != null)
+        {
+            switch (output.toLowerCase())
+            {
+                case "json":
+                    body = toJSON().toString();
+                    filename = "report.json";
+                    break;
+                case "stdout":
+                default:
+                    report(event);
+                    return;
+            }
+
+            File dest = event.getProject().getProperties().containsKey("maven-buildtime-profiler-directory") ?
+                new File(event.getProject().getProperties().getProperty("maven-buildtime-profiler-directory"), filename) :
+                new File("target/", filename);
+
+            try (FileWriter file = new FileWriter(dest))
+            {
+                file.write(body);
+                return;
+            }
+            catch (IOException e)
+            {
+                LOGGER.error("Couldn't write to file at {}: {}", dest, e.getMessage());
+                return;
+            }
+        }
+
+        report(event);
+    }
+
+    private void report(MavenExecutionResult event)
+    {
         orderLifeCycleOnPreparedOrder( lifeCyclePhases );
 
         LOGGER.debug( "MBTP: executionResultEventHandler: {}", event.getProject() );
@@ -455,7 +498,7 @@ public class BuildTimeProfiler
                 for ( Entry<ProjectMojo, SystemTime> pluginInPhase : plugisInPhase.entrySet() )
                 {
                     LOGGER.info( "{} ms: {}", String.format( "%8d", pluginInPhase.getValue().getElapsedTime() ),
-                                 pluginInPhase.getKey().getMojo().getFullId() );
+                        pluginInPhase.getKey().getMojo().getFullId() );
                 }
 
             }
@@ -479,6 +522,27 @@ public class BuildTimeProfiler
 
         forkTimer.report();
         forkProject.report();
+    }
+
+    private JSONObject toJSON()
+    {
+        JSONObject jsonObject = new JSONObject();
+
+        jsonObject.put("discovery-time", discoveryTimer.getTime());
+        jsonObject.put("build", mojoTimer.toJSON());
+        jsonObject.put("goals", goalTimer.toJSON());
+        jsonObject.put("install", installTimer.toJSON());
+        jsonObject.put("download", downloadTimer.toJSON());
+        jsonObject.put("deploy", deployTimer.toJSON());
+        JSONObject metadata = new JSONObject();
+        metadata.put("install", metadataInstallTimer.toJSON());
+        metadata.put("download", metadataDownloadTimer.toJSON());
+        metadata.put("deployment", metadataDeploymentTimer.toJSON());
+        jsonObject.put("metadata", metadata);
+        jsonObject.put("fork-time", forkTimer.getTime());
+        jsonObject.put("fork-project", forkProject.toJSON());
+
+        return jsonObject;
     }
 
     private ProjectKey mavenProjectToProjectKey( MavenProject project )

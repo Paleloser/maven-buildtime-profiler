@@ -21,7 +21,7 @@ package com.soebes.maven.extensions.artifact;
 
 import java.text.NumberFormat;
 import java.util.Map.Entry;
-
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,5 +61,4 @@ public class DeployTimer
                      NumberFormat.getNumberInstance().format( mibPerSeconds ) );
         LOGGER.info( "------------------------------------------------------------------------" );
     }
-
 }

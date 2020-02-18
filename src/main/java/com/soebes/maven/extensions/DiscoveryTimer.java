@@ -19,6 +19,7 @@ package com.soebes.maven.extensions;
  * under the License.
  */
 
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,4 +53,8 @@ class DiscoveryTimer
         LOGGER.info( "------------------------------------------------------------------------" );
     }
 
+    public long getTime()
+    {
+        return this.time.getElapsedTime();
+    }
 }

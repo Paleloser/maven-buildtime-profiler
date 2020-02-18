@@ -4,7 +4,7 @@ target
 .project
 .classpath
 .settings
-# Idea generated
+# IDEA generated
 .idea
 # Release plugin
 release.properties

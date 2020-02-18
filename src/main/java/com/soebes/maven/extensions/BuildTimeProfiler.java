@@ -52,6 +52,9 @@ import com.soebes.maven.extensions.metadata.MetadataDeploymentTimer;
 import com.soebes.maven.extensions.metadata.MetadataDownloadTimer;
 import com.soebes.maven.extensions.metadata.MetadataInstallTimer;
 import com.soebes.maven.extensions.reporter.ElasticsearchReporter;
+import oshi.SystemInfo;
+import oshi.hardware.HardwareAbstractionLayer;
+import oshi.software.os.OperatingSystem;
 
 /**
  * @author Karl Heinz Marbaise <a href="mailto:kama@soebes.de">kama@soebes.de</a>
@@ -103,6 +106,7 @@ public class BuildTimeProfiler
         "download",
         "metadata",
         "build.plugins",
+        "build.projects",
         "install",
         "fork-project",
         "fork-time",
@@ -423,7 +427,7 @@ public class BuildTimeProfiler
 
         JSONObject document = toJSON();
 
-        if (output != null)
+        if (output != null && !output.equalsIgnoreCase("stdout"))
         {
             switch (output.toLowerCase())
             {
@@ -431,9 +435,7 @@ public class BuildTimeProfiler
                     body = document.toString();
                     filename = "report.json";
                     break;
-                case "stdout":
                 default:
-                    report(event);
                     return;
             }
 
@@ -444,8 +446,6 @@ public class BuildTimeProfiler
             try (FileWriter file = new FileWriter(dest))
             {
                 file.write(body);
-                elasticsearchReporter.indexWithoutFields(document, ignoreReportFields);
-                return;
             }
             catch (IOException e)
             {
@@ -453,9 +453,12 @@ public class BuildTimeProfiler
                 return;
             }
         }
+        else
+        {
+            report(event);
+        }
 
-        report(event);
-        elasticsearchReporter.indexWithoutFields(document, ignoreReportFields);
+        sendTelemetry(event, document);
     }
 
     private void report(MavenExecutionResult event)
@@ -558,6 +561,109 @@ public class BuildTimeProfiler
         jsonObject.put("fork-project", forkProject.toJSON());
 
         return jsonObject;
+    }
+
+    private void sendTelemetry(MavenExecutionResult event, JSONObject profiling)
+    {
+        removeJSONFields(profiling, ignoreReportFields);
+
+        JSONObject document = new JSONObject();
+        document.put("profiling", profiling);
+
+        JSONObject project = new JSONObject();
+        project.put("id", event.getProject().getId());
+        project.put("groupId", event.getProject().getGroupId());
+        project.put("artifactId", event.getProject().getArtifactId());
+        project.put("version", event.getProject().getVersion());
+
+        JSONObject parent = new JSONObject();
+        parent.put("groupId", event.getProject().getParent().getGroupId());
+        parent.put("artifactId", event.getProject().getParent().getArtifactId());
+        parent.put("version", event.getProject().getParent().getVersion());
+
+        project.put("parent", parent);
+        document.put("project", project);
+
+        document.put("system", getSystemTelemetry());
+
+        elasticsearchReporter.index(document);
+    }
+
+    private JSONObject getSystemTelemetry()
+    {
+        SystemInfo sysInfo = new SystemInfo();
+
+        HardwareAbstractionLayer hardware = sysInfo.getHardware();
+        OperatingSystem osInfo = sysInfo.getOperatingSystem();
+
+        JSONObject system = new JSONObject();
+
+        JSONObject os = new JSONObject();
+        os.put("arch", System.getProperty("os.arch"));
+        os.put("name", System.getProperty("os.name"));
+        os.put("version", System.getProperty("os.version"));
+        os.put("build", osInfo.getVersionInfo().getBuildNumber());
+
+        JSONObject java = new JSONObject();
+
+        JSONObject javaVm = new JSONObject();
+        javaVm.put("specification", System.getProperty("java.vm.specification.version"));
+        javaVm.put("version", System.getProperty("java.vm.version"));
+        javaVm.put("vendor", System.getProperty("java.vm.vendor"));
+
+        JSONObject javaVmMemory = new JSONObject();
+        javaVmMemory.put("total", Runtime.getRuntime().totalMemory());
+        javaVmMemory.put("available", Runtime.getRuntime().freeMemory());
+        javaVmMemory.put("max", Runtime.getRuntime().maxMemory());
+
+        javaVm.put("memory", javaVmMemory);
+
+        java.put("vm", javaVm);
+        java.put("runtime", System.getProperty("java.runtime.version"));
+
+        JSONObject processor = new JSONObject();
+        processor.put("id", hardware.getProcessor().getProcessorIdentifier().getIdentifier());
+        processor.put("name", hardware.getProcessor().getProcessorIdentifier().getName());
+        processor.put("logicalProcessors", hardware.getProcessor().getLogicalProcessorCount());
+        processor.put("physicalProcessors", hardware.getProcessor().getPhysicalProcessorCount());
+        processor.put("frequency", hardware.getProcessor().getMaxFreq());
+
+        JSONObject memory = new JSONObject();
+        memory.put("total", hardware.getMemory().getTotal());
+        memory.put("available", hardware.getMemory().getAvailable());
+
+        system.put("memory", memory);
+        system.put("processor", processor);
+        system.put("os", os);
+        system.put("java", java);
+
+        return system;
+    }
+
+    private void removeJSONFields(JSONObject document, String[] fields) {
+        for (String field : fields)
+        {
+            removeFieldToDocument(document, field);
+        }
+    }
+
+    private JSONObject removeFieldToDocument(JSONObject document, String field)
+    {
+        if (field.contains("."))
+        {
+            String key = field.substring(0, field.indexOf('.'));
+            String subkey = field.substring(field.indexOf('.') + 1);
+
+            if (document.has(key))
+            {
+                document.put(key, removeFieldToDocument((JSONObject) document.get(key), subkey));
+            }
+        }
+        else if (document.has(field))
+        {
+            document.remove(field);
+        }
+        return document;
     }
 
     private ProjectKey mavenProjectToProjectKey( MavenProject project )

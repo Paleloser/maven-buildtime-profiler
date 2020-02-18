@@ -87,35 +87,6 @@ public class ElasticsearchReporter {
     }
   }
 
-  public void indexWithoutFields(JSONObject document, String[] fields)
-  {
-    for (String field : fields)
-    {
-      removeFieldToDocument(document, field);
-    }
-
-    index(document);
-  }
-
-  private JSONObject removeFieldToDocument(JSONObject document, String field)
-  {
-      if (field.contains("."))
-      {
-          String key = field.substring(0, field.indexOf('.'));
-          String subkey = field.substring(field.indexOf('.') + 1);
-
-          if (document.has(key))
-          {
-              document.put(key, removeFieldToDocument((JSONObject) document.get(key), subkey));
-          }
-      }
-      else if (document.has(field))
-      {
-          document.remove(field);
-      }
-      return document;
-  }
-
   private void close()
   {
     try {

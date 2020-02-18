@@ -443,8 +443,8 @@ public class BuildTimeProfiler
             }
         }
 
-        elasticsearchReporter.index(document);
         report(event);
+        elasticsearchReporter.index(document);
     }
 
     private void report(MavenExecutionResult event)

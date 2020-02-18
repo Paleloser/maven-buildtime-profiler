@@ -19,6 +19,7 @@ package com.soebes.maven.extensions;
  * under the License.
  */
 
+import com.soebes.maven.extensions.reporter.ElasticsearchReporter;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -57,6 +58,12 @@ public class BuildTimeProfiler
 {
     private final Logger LOGGER = LoggerFactory.getLogger( getClass() );
 
+    private final String elasticsearchAddress = "localhost";
+
+    private final int elasticsearchPort = 9200;
+
+    private final String elasticsearchIndex = "maven-buildtime-profiler";
+
     final List<String> lifeCyclePhases;
 
     private final DiscoveryTimer discoveryTimer;
@@ -85,6 +92,8 @@ public class BuildTimeProfiler
 
     private final ProjectTimer forkProject;
 
+    private final ElasticsearchReporter elasticsearchReporter;
+
     public BuildTimeProfiler()
     {
         LOGGER.debug( "LifeCycleProfiler ctor called." );
@@ -104,6 +113,7 @@ public class BuildTimeProfiler
         this.forkTimer = new ForkTimer();
         this.forkProject = new ProjectTimer();
 
+        this.elasticsearchReporter = new ElasticsearchReporter(elasticsearchAddress, elasticsearchPort, elasticsearchIndex);
     }
 
     @Override

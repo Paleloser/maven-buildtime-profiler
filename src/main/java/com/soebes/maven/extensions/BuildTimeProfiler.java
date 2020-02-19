@@ -66,12 +66,6 @@ public class BuildTimeProfiler
 {
     private final Logger LOGGER = LoggerFactory.getLogger( getClass() );
 
-    private final String elasticsearchAddress = "localhost";
-
-    private final int elasticsearchPort = 9200;
-
-    private final String elasticsearchIndex = "maven-buildtime-profiler";
-
     final List<String> lifeCyclePhases;
 
     private final DiscoveryTimer discoveryTimer;
@@ -99,8 +93,6 @@ public class BuildTimeProfiler
     private final ForkTimer forkTimer;
 
     private final ProjectTimer forkProject;
-
-    private final ElasticsearchReporter elasticsearchReporter;
 
     private final String[] ignoreReportFields = new String[]{
         "download",
@@ -131,8 +123,6 @@ public class BuildTimeProfiler
         this.metadataInstallTimer = new MetadataInstallTimer();
         this.forkTimer = new ForkTimer();
         this.forkProject = new ProjectTimer();
-
-        this.elasticsearchReporter = new ElasticsearchReporter(elasticsearchAddress, elasticsearchPort, elasticsearchIndex);
     }
 
     @Override
@@ -422,12 +412,21 @@ public class BuildTimeProfiler
     private void executionResultEventHandler( MavenExecutionResult event )
     {
         String output = event.getProject().getProperties().getProperty("maven-buildtime-profiler-output");
-        String filename = "";
-        String body = "";
+        String filename;
+        String body;
+
+        String address = event.getProject().getProperties().contains("maven-buildtime-profiler-endpoint") ?
+            event.getProject().getProperties().getProperty("maven-buildtime-profiler-endpoint") : "elasticsearch";
+        int port = event.getProject().getProperties().contains("maven-buildtime-profiler-port") ?
+            Integer.parseInt(event.getProject().getProperties().getProperty("maven-buildtime-profiler-port")) : 9200;
+        String index = event.getProject().getProperties().contains("maven-buildtime-profiler-index") ?
+            event.getProject().getProperties().getProperty("maven-buildtime-profiler-index") : "maven-buildtime-profiler";
+
+        ElasticsearchReporter elasticsearchReporter = new ElasticsearchReporter(address, port, index);
 
         JSONObject document = toJSON();
 
-        if (output != null && !output.equalsIgnoreCase("stdout"))
+        if (output != null)
         {
             switch (output.toLowerCase())
             {
@@ -435,30 +434,30 @@ public class BuildTimeProfiler
                     body = document.toString();
                     filename = "report.json";
                     break;
+                case "stdout":
                 default:
+                    report(event);
                     return;
             }
 
-            File dest = event.getProject().getProperties().containsKey("maven-buildtime-profiler-directory") ?
-                new File(event.getProject().getProperties().getProperty("maven-buildtime-profiler-directory"), filename) :
-                new File("target/", filename);
+            if (filename != null && body != null)
+            {
+                File dest = event.getProject().getProperties().containsKey("maven-buildtime-profiler-directory") ?
+                    new File(event.getProject().getProperties().getProperty("maven-buildtime-profiler-directory"), filename) :
+                    new File("target/", filename);
 
-            try (FileWriter file = new FileWriter(dest))
-            {
-                file.write(body);
-            }
-            catch (IOException e)
-            {
-                LOGGER.error("Couldn't save document: {}", e.getMessage());
-                return;
+                try (FileWriter file = new FileWriter(dest))
+                {
+                    file.write(body);
+                }
+                catch (IOException e)
+                {
+                    LOGGER.warn("Couldn't save document: {}", e.getMessage());
+                }
             }
         }
-        else
-        {
-            report(event);
-        }
 
-        sendTelemetry(event, document);
+        elasticsearchReporter.sendTelemetry(event, document, ignoreReportFields);
     }
 
     private void report(MavenExecutionResult event)
@@ -561,109 +560,6 @@ public class BuildTimeProfiler
         jsonObject.put("fork-project", forkProject.toJSON());
 
         return jsonObject;
-    }
-
-    private void sendTelemetry(MavenExecutionResult event, JSONObject profiling)
-    {
-        removeJSONFields(profiling, ignoreReportFields);
-
-        JSONObject document = new JSONObject();
-        document.put("profiling", profiling);
-
-        JSONObject project = new JSONObject();
-        project.put("id", event.getProject().getId());
-        project.put("groupId", event.getProject().getGroupId());
-        project.put("artifactId", event.getProject().getArtifactId());
-        project.put("version", event.getProject().getVersion());
-
-        JSONObject parent = new JSONObject();
-        parent.put("groupId", event.getProject().getParent().getGroupId());
-        parent.put("artifactId", event.getProject().getParent().getArtifactId());
-        parent.put("version", event.getProject().getParent().getVersion());
-
-        project.put("parent", parent);
-        document.put("project", project);
-
-        document.put("system", getSystemTelemetry());
-
-        elasticsearchReporter.index(document);
-    }
-
-    private JSONObject getSystemTelemetry()
-    {
-        SystemInfo sysInfo = new SystemInfo();
-
-        HardwareAbstractionLayer hardware = sysInfo.getHardware();
-        OperatingSystem osInfo = sysInfo.getOperatingSystem();
-
-        JSONObject system = new JSONObject();
-
-        JSONObject os = new JSONObject();
-        os.put("arch", System.getProperty("os.arch"));
-        os.put("name", System.getProperty("os.name"));
-        os.put("version", System.getProperty("os.version"));
-        os.put("build", osInfo.getVersionInfo().getBuildNumber());
-
-        JSONObject java = new JSONObject();
-
-        JSONObject javaVm = new JSONObject();
-        javaVm.put("specification", System.getProperty("java.vm.specification.version"));
-        javaVm.put("version", System.getProperty("java.vm.version"));
-        javaVm.put("vendor", System.getProperty("java.vm.vendor"));
-
-        JSONObject javaVmMemory = new JSONObject();
-        javaVmMemory.put("total", Runtime.getRuntime().totalMemory());
-        javaVmMemory.put("available", Runtime.getRuntime().freeMemory());
-        javaVmMemory.put("max", Runtime.getRuntime().maxMemory());
-
-        javaVm.put("memory", javaVmMemory);
-
-        java.put("vm", javaVm);
-        java.put("runtime", System.getProperty("java.runtime.version"));
-
-        JSONObject processor = new JSONObject();
-        processor.put("id", hardware.getProcessor().getProcessorIdentifier().getIdentifier());
-        processor.put("name", hardware.getProcessor().getProcessorIdentifier().getName());
-        processor.put("logicalProcessors", hardware.getProcessor().getLogicalProcessorCount());
-        processor.put("physicalProcessors", hardware.getProcessor().getPhysicalProcessorCount());
-        processor.put("frequency", hardware.getProcessor().getMaxFreq());
-
-        JSONObject memory = new JSONObject();
-        memory.put("total", hardware.getMemory().getTotal());
-        memory.put("available", hardware.getMemory().getAvailable());
-
-        system.put("memory", memory);
-        system.put("processor", processor);
-        system.put("os", os);
-        system.put("java", java);
-
-        return system;
-    }
-
-    private void removeJSONFields(JSONObject document, String[] fields) {
-        for (String field : fields)
-        {
-            removeFieldToDocument(document, field);
-        }
-    }
-
-    private JSONObject removeFieldToDocument(JSONObject document, String field)
-    {
-        if (field.contains("."))
-        {
-            String key = field.substring(0, field.indexOf('.'));
-            String subkey = field.substring(field.indexOf('.') + 1);
-
-            if (document.has(key))
-            {
-                document.put(key, removeFieldToDocument((JSONObject) document.get(key), subkey));
-            }
-        }
-        else if (document.has(field))
-        {
-            document.remove(field);
-        }
-        return document;
     }
 
     private ProjectKey mavenProjectToProjectKey( MavenProject project )

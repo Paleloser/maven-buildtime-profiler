@@ -22,7 +22,6 @@ package com.soebes.maven.extensions;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.security.SignedObject;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -411,49 +410,49 @@ public class BuildTimeProfiler
 
     private void executionResultEventHandler( MavenExecutionResult event )
     {
-        String output = event.getProject().getProperties().getProperty("maven-buildtime-profiler-output");
-        String filename;
-        String body;
+        String output = event.getProject().getProperties().containsKey("maven-buildtime-profiler.output") ?
+            event.getProject().getProperties().getProperty("maven-buildtime-profiler.output") :
+            "stdout";
+        String filename = null;
+        String body = null;
 
-        String address = event.getProject().getProperties().contains("maven-buildtime-profiler-endpoint") ?
-            event.getProject().getProperties().getProperty("maven-buildtime-profiler-endpoint") : "elasticsearch";
-        int port = event.getProject().getProperties().contains("maven-buildtime-profiler-port") ?
-            Integer.parseInt(event.getProject().getProperties().getProperty("maven-buildtime-profiler-port")) : 9200;
-        String index = event.getProject().getProperties().contains("maven-buildtime-profiler-index") ?
-            event.getProject().getProperties().getProperty("maven-buildtime-profiler-index") : "maven-buildtime-profiler";
+        String address = event.getProject().getProperties().contains("maven-buildtime-profiler.endpoint") ?
+            event.getProject().getProperties().getProperty("maven-buildtime-profiler.endpoint") : "elasticsearch";
+        int port = event.getProject().getProperties().contains("maven-buildtime-profiler.port") ?
+            Integer.parseInt(event.getProject().getProperties().getProperty("maven-buildtime-profiler.port")) : 9200;
+        String index = event.getProject().getProperties().contains("maven-buildtime-profiler.index") ?
+            event.getProject().getProperties().getProperty("maven-buildtime-profiler.index") : "maven-buildtime-profiler";
 
         ElasticsearchReporter elasticsearchReporter = new ElasticsearchReporter(address, port, index);
 
         JSONObject document = toJSON();
 
-        if (output != null)
+        switch (output.toLowerCase())
         {
-            switch (output.toLowerCase())
+            case "json":
+                body = document.toString();
+                filename = "report.json";
+                break;
+            case "none":
+                break;
+            case "stdout":
+            default:
+                report(event);
+        }
+
+        if (filename != null && body != null)
+        {
+            File dest = event.getProject().getProperties().containsKey("maven-buildtime-profiler.directory") ?
+                new File(event.getProject().getProperties().getProperty("maven-buildtime-profiler.directory"), filename) :
+                new File("target/", filename);
+
+            try (FileWriter file = new FileWriter(dest))
             {
-                case "json":
-                    body = document.toString();
-                    filename = "report.json";
-                    break;
-                case "stdout":
-                default:
-                    report(event);
-                    return;
+                file.write(body);
             }
-
-            if (filename != null && body != null)
+            catch (IOException e)
             {
-                File dest = event.getProject().getProperties().containsKey("maven-buildtime-profiler-directory") ?
-                    new File(event.getProject().getProperties().getProperty("maven-buildtime-profiler-directory"), filename) :
-                    new File("target/", filename);
-
-                try (FileWriter file = new FileWriter(dest))
-                {
-                    file.write(body);
-                }
-                catch (IOException e)
-                {
-                    LOGGER.warn("Couldn't save document: {}", e.getMessage());
-                }
+                LOGGER.warn("Couldn't write to file at {}: {}", dest, e.getMessage());
             }
         }
 

@@ -58,10 +58,13 @@ public class ElasticsearchReporter {
 
   private void createIndex() throws IOException
   {
-    final String mappingFile = "src/main/resources/profile-mapping.json";
+    JSONObject profileMapping = new JSONObject();
+    JSONObject properties = new JSONObject();
+    JSONObject date = new JSONObject();
 
-    JSONTokener tokener = new JSONTokener(new InputStreamReader(new FileInputStream(mappingFile)));
-    JSONObject profileMapping = new JSONObject(tokener);
+    date.put("type", "date");
+    properties.put("date", "date");
+    profileMapping.put("properties", properties);
 
     CreateIndexRequest request = new CreateIndexRequest(index.toLowerCase());
     request.mapping(profileMapping.toString(), XContentType.JSON);

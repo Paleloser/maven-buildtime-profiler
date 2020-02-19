@@ -416,11 +416,11 @@ public class BuildTimeProfiler
         String filename = null;
         String body = null;
 
-        String address = event.getProject().getProperties().contains("maven-buildtime-profiler.endpoint") ?
+        String address = event.getProject().getProperties().containsKey("maven-buildtime-profiler.endpoint") ?
             event.getProject().getProperties().getProperty("maven-buildtime-profiler.endpoint") : "elasticsearch";
-        int port = event.getProject().getProperties().contains("maven-buildtime-profiler.port") ?
+        int port = event.getProject().getProperties().containsKey("maven-buildtime-profiler.port") ?
             Integer.parseInt(event.getProject().getProperties().getProperty("maven-buildtime-profiler.port")) : 9200;
-        String index = event.getProject().getProperties().contains("maven-buildtime-profiler.index") ?
+        String index = event.getProject().getProperties().containsKey("maven-buildtime-profiler.index") ?
             event.getProject().getProperties().getProperty("maven-buildtime-profiler.index") : "maven-buildtime-profiler";
 
         ElasticsearchReporter elasticsearchReporter = new ElasticsearchReporter(address, port, index);

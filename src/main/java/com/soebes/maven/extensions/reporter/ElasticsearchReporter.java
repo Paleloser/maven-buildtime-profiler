@@ -239,7 +239,7 @@ public class ElasticsearchReporter {
     }
     catch (IOException e)
     {
-      LOGGER.error("Error indexing document: {}", e.getMessage());
+      LOGGER.warn("Error indexing document: {}", e.getMessage());
     }
   }
 
@@ -248,7 +248,7 @@ public class ElasticsearchReporter {
     try {
       client.close();
     } catch (IOException e) {
-      LOGGER.error("Error closing elasticsearch connection: {}", e.getMessage());
+      LOGGER.warn("Error closing elasticsearch connection: {}", e.getMessage());
     }
   }
 }

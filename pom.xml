@@ -201,6 +201,15 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <configuration>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+              </excludes>
+            </filter>
+          </filters>
           <shadedArtifactAttached>true</shadedArtifactAttached>
           <shadedClassifierName>mvn311</shadedClassifierName>
           <createDependencyReducedPom>false</createDependencyReducedPom>

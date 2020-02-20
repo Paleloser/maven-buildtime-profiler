@@ -6,8 +6,11 @@ import java.util.Date;
 
 import org.apache.http.HttpHost;
 import org.apache.maven.execution.MavenExecutionResult;
-
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 
 import org.elasticsearch.action.index.IndexRequest;
@@ -164,15 +167,27 @@ public class ElasticsearchReporter {
 
     try
     {
-      Repository repository = builder.setGitDir(new File("./"))
+      Repository repository = builder
           .readEnvironment()
           .findGitDir()
           .build();
 
+      Git gitObject = new Git(repository);
+
+      RevCommit commit = gitObject
+          .log()
+          .add(repository.resolve(Constants.HEAD))
+          .setMaxCount(1)
+          .call()
+          .iterator()
+          .next();
+
       git.put("branch", repository.getBranch());
-      git.put("remote", repository.getRemoteName(repository.getBranch()));
+      git.put("commit", commit.getName());
+
+      return git;
     }
-    catch (IOException e)
+    catch (IOException | GitAPIException e)
     {
       LOGGER.warn("Error getting Repository: {}", e.getMessage());
     }

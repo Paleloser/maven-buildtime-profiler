@@ -51,9 +51,6 @@ import com.soebes.maven.extensions.metadata.MetadataDeploymentTimer;
 import com.soebes.maven.extensions.metadata.MetadataDownloadTimer;
 import com.soebes.maven.extensions.metadata.MetadataInstallTimer;
 import com.soebes.maven.extensions.reporter.ElasticsearchReporter;
-import oshi.SystemInfo;
-import oshi.hardware.HardwareAbstractionLayer;
-import oshi.software.os.OperatingSystem;
 
 /**
  * @author Karl Heinz Marbaise <a href="mailto:kama@soebes.de">kama@soebes.de</a>

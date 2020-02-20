@@ -66,6 +66,11 @@
       </exclusions>
     </dependency>
     <dependency>
+      <groupId>org.eclipse.jgit</groupId>
+      <artifactId>org.eclipse.jgit</artifactId>
+      <version>5.5.0.201909110433-r</version>
+    </dependency>
+    <dependency>
       <groupId>org.elasticsearch.client</groupId>
       <artifactId>elasticsearch-rest-high-level-client</artifactId>
       <version>7.3.2</version>

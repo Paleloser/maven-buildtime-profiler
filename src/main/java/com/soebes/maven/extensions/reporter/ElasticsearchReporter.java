@@ -1,11 +1,15 @@
 package com.soebes.maven.extensions.reporter;
 
-import java.io.FileInputStream;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Date;
+
 import org.apache.http.HttpHost;
 import org.apache.maven.execution.MavenExecutionResult;
+
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
@@ -13,10 +17,12 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.common.xcontent.XContentType;
+
 import org.json.JSONObject;
-import org.json.JSONTokener;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import oshi.SystemInfo;
 import oshi.hardware.HardwareAbstractionLayer;
 import oshi.software.os.OperatingSystem;
@@ -95,6 +101,7 @@ public class ElasticsearchReporter {
 
     document.put("system", getSystemTelemetry());
     document.put("version", this.getClass().getPackage().getImplementationVersion());
+    document.put("git", getGitInfo());
 
     index(document);
   }
@@ -148,6 +155,29 @@ public class ElasticsearchReporter {
     system.put("java", java);
 
     return system;
+  }
+
+  private JSONObject getGitInfo()
+  {
+    FileRepositoryBuilder builder = new FileRepositoryBuilder();
+    JSONObject git = new JSONObject();
+
+    try
+    {
+      Repository repository = builder.setGitDir(new File("./"))
+          .readEnvironment()
+          .findGitDir()
+          .build();
+
+      git.put("branch", repository.getBranch());
+      git.put("remote", repository.getRemoteName(repository.getBranch()));
+    }
+    catch (IOException e)
+    {
+      LOGGER.warn("Error getting Repository: {}", e.getMessage());
+    }
+
+    return git;
   }
 
   private void removeJSONFields(JSONObject document, String[] fields) {

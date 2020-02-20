@@ -94,6 +94,7 @@ public class ElasticsearchReporter {
     document.put("project", project);
 
     document.put("system", getSystemTelemetry());
+    document.put("version", this.getClass().getPackage().getImplementationVersion());
 
     index(document);
   }

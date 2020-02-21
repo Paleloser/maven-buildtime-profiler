@@ -453,7 +453,10 @@ public class BuildTimeProfiler
             }
         }
 
-        elasticsearchReporter.sendTelemetry(event, document, ignoreReportFields);
+        if (elasticsearchReporter.isReachable())
+        {
+            elasticsearchReporter.sendTelemetry(event, document, ignoreReportFields);
+        }
     }
 
     private void report(MavenExecutionResult event)

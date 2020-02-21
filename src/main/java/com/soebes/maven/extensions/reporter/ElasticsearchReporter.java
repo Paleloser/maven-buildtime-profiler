@@ -35,15 +35,20 @@ public class ElasticsearchReporter {
 
   private final String index;
 
+  private final String address;
+
+  private boolean reachable;
+
   private final RestHighLevelClient client;
 
   public ElasticsearchReporter(String address, int port, String index) {
     this.index = index;
+    this.address = address;
     this.client = new RestHighLevelClient(RestClient.builder(new HttpHost(address, port, "http")));
-    initIndex();
+    this.reachable = initIndex();
   }
 
-  private void initIndex()
+  private boolean initIndex()
   {
     try
     {
@@ -51,11 +56,13 @@ public class ElasticsearchReporter {
       {
         createIndex();
       }
+      return true;
     }
     catch (IOException e)
     {
-      LOGGER.warn("Error initializing index: {}", e.getMessage());
+      LOGGER.warn("Couldn't init index at {}", address);
     }
+    return false;
   }
 
   private boolean isIndex() throws IOException
@@ -240,6 +247,10 @@ public class ElasticsearchReporter {
     {
       LOGGER.warn("Error indexing document: {}", e.getMessage());
     }
+  }
+
+  public boolean isReachable() {
+    return reachable;
   }
 
   private void close()

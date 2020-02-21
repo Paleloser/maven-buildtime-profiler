@@ -1,6 +1,5 @@
 package com.soebes.maven.extensions.reporter;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Date;
 
@@ -55,7 +54,7 @@ public class ElasticsearchReporter {
     }
     catch (IOException e)
     {
-      LOGGER.error("Error initializing index: {}", e.getMessage());
+      LOGGER.warn("Error initializing index: {}", e.getMessage());
     }
   }
 

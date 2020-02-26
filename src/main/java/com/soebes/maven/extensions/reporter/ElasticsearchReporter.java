@@ -255,9 +255,12 @@ public class ElasticsearchReporter {
 
   private void close()
   {
-    try {
+    try
+    {
       client.close();
-    } catch (IOException e) {
+    }
+    catch (IOException e)
+    {
       LOGGER.warn("Error closing elasticsearch connection: {}", e.getMessage());
     }
   }

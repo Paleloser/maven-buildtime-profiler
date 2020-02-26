@@ -408,17 +408,16 @@ public class BuildTimeProfiler
     private void executionResultEventHandler( MavenExecutionResult event )
     {
         String output = event.getProject().getProperties().containsKey("maven-buildtime-profiler.output") ?
-            event.getProject().getProperties().getProperty("maven-buildtime-profiler.output") :
-            "stdout";
-        String filename = null;
-        String body = null;
-
+            event.getProject().getProperties().getProperty("maven-buildtime-profiler.output") : "stdout";
         String address = event.getProject().getProperties().containsKey("maven-buildtime-profiler.endpoint") ?
             event.getProject().getProperties().getProperty("maven-buildtime-profiler.endpoint") : "elasticsearch";
         int port = event.getProject().getProperties().containsKey("maven-buildtime-profiler.port") ?
             Integer.parseInt(event.getProject().getProperties().getProperty("maven-buildtime-profiler.port")) : 9200;
         String index = event.getProject().getProperties().containsKey("maven-buildtime-profiler.index") ?
             event.getProject().getProperties().getProperty("maven-buildtime-profiler.index") : "maven-buildtime-profiler";
+
+        String filename = null;
+        String body = null;
 
         ElasticsearchReporter elasticsearchReporter = new ElasticsearchReporter(address, port, index);
 
@@ -543,20 +542,21 @@ public class BuildTimeProfiler
     private JSONObject toJSON()
     {
         JSONObject jsonObject = new JSONObject();
-
         jsonObject.put("discovery-time", discoveryTimer.getTime());
         jsonObject.put("build", mojoTimer.toJSON());
         jsonObject.put("goals", goalTimer.toJSON());
         jsonObject.put("install", installTimer.toJSON());
         jsonObject.put("download", downloadTimer.toJSON());
         jsonObject.put("deploy", deployTimer.toJSON());
+        jsonObject.put("fork-time", forkTimer.getTime());
+        jsonObject.put("fork-project", forkProject.toJSON());
+
         JSONObject metadata = new JSONObject();
         metadata.put("install", metadataInstallTimer.toJSON());
         metadata.put("download", metadataDownloadTimer.toJSON());
         metadata.put("deployment", metadataDeploymentTimer.toJSON());
+
         jsonObject.put("metadata", metadata);
-        jsonObject.put("fork-time", forkTimer.getTime());
-        jsonObject.put("fork-project", forkProject.toJSON());
 
         return jsonObject;
     }

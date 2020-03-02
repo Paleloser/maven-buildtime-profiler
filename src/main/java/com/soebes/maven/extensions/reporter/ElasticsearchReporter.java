@@ -2,8 +2,11 @@ package com.soebes.maven.extensions.reporter;
 
 import java.io.IOException;
 import java.util.Date;
-
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
+import org.apache.http.conn.ssl.TrustStrategy;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.maven.execution.MavenExecutionResult;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -15,6 +18,7 @@ import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
@@ -37,14 +41,49 @@ public class ElasticsearchReporter {
 
   private final String address;
 
+  private final int port;
+
   private boolean reachable;
 
-  private final RestHighLevelClient client;
+  private String secret;
 
-  public ElasticsearchReporter(String address, int port, String index) {
+  private RestHighLevelClient client;
+
+  public ElasticsearchReporter(String address, int port, String index, String secret) {
     this.index = index;
     this.address = address;
-    this.client = new RestHighLevelClient(RestClient.builder(new HttpHost(address, port, "http")));
+    this.port = port;
+    this.secret = secret;
+    initClient();
+  }
+
+  private void initClient() {
+    RestClientBuilder builder = RestClient.builder(new HttpHost(address, this.port, "https"));
+
+    builder.setHttpClientConfigCallback(clientBuilder ->
+    {
+      try
+      {
+        clientBuilder.setSSLContext(new SSLContextBuilder().loadTrustMaterial(null, (TrustStrategy) (arg0, arg1) -> true).build());
+      }
+      catch (Exception e)
+      {
+        LOGGER.warn("Error configuring ssl context: {}", e.getMessage());
+      }
+
+      return clientBuilder.setSSLHostnameVerifier((s, sslSession) -> true);
+    });
+
+    if (this.secret != null)
+    {
+      Header[] defHeaders = new Header[]{
+          new BasicHeader("Authorization", "ApiKey " + this.secret)
+      };
+
+      builder.setDefaultHeaders(defHeaders);
+    }
+
+    this.client = new RestHighLevelClient(builder);
     this.reachable = initIndex();
   }
 
@@ -60,7 +99,7 @@ public class ElasticsearchReporter {
     }
     catch (IOException e)
     {
-      LOGGER.warn("Couldn't init index at {}", address);
+      LOGGER.warn("Couldn't init index at {}: {}", address, e.getMessage());
     }
     return false;
   }
@@ -78,7 +117,7 @@ public class ElasticsearchReporter {
     JSONObject date = new JSONObject();
 
     date.put("type", "date");
-    properties.put("date", "date");
+    properties.put("date", date);
     profileMapping.put("properties", properties);
 
     CreateIndexRequest request = new CreateIndexRequest(index.toLowerCase());

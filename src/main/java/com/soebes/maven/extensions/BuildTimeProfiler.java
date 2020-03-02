@@ -415,11 +415,13 @@ public class BuildTimeProfiler
             Integer.parseInt(event.getProject().getProperties().getProperty("maven-buildtime-profiler.port")) : 9200;
         String index = event.getProject().getProperties().containsKey("maven-buildtime-profiler.index") ?
             event.getProject().getProperties().getProperty("maven-buildtime-profiler.index") : "maven-buildtime-profiler";
+        String apiKey = event.getProject().getProperties().containsKey("maven-buildtime-profiler.apiKey") ?
+            event.getProject().getProperties().getProperty("maven-buildtime-profiler.apiKey") : System.getenv("MAVEN_BUILDTIME_PROFILER_KEY");
 
         String filename = null;
         String body = null;
 
-        ElasticsearchReporter elasticsearchReporter = new ElasticsearchReporter(address, port, index);
+        ElasticsearchReporter elasticsearchReporter = new ElasticsearchReporter(address, port, index, apiKey);
 
         JSONObject document = toJSON();
 

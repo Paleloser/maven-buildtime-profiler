@@ -407,16 +407,25 @@ public class BuildTimeProfiler
 
     private void executionResultEventHandler( MavenExecutionResult event )
     {
-        String output = event.getProject().getProperties().containsKey("maven-buildtime-profiler.output") ?
-            event.getProject().getProperties().getProperty("maven-buildtime-profiler.output") : "stdout";
-        String address = event.getProject().getProperties().containsKey("maven-buildtime-profiler.endpoint") ?
-            event.getProject().getProperties().getProperty("maven-buildtime-profiler.endpoint") : "elasticsearch";
-        int port = event.getProject().getProperties().containsKey("maven-buildtime-profiler.port") ?
-            Integer.parseInt(event.getProject().getProperties().getProperty("maven-buildtime-profiler.port")) : 9200;
-        String index = event.getProject().getProperties().containsKey("maven-buildtime-profiler.index") ?
-            event.getProject().getProperties().getProperty("maven-buildtime-profiler.index") : "maven-buildtime-profiler";
-        String apiKey = event.getProject().getProperties().containsKey("maven-buildtime-profiler.apiKey") ?
-            event.getProject().getProperties().getProperty("maven-buildtime-profiler.apiKey") : System.getenv("MAVEN_BUILDTIME_PROFILER_KEY");
+        final String OUTPUT_PROPERTY = "maven-buildtime-profiler.output";
+        final String DIRECTORY_PROPERTY = "maven-buildtime-profiler.directory";
+        final String ENDPOINT_PROPERTY = "maven-buildtime-profiler.endpoint";
+        final String PORT_PROPERTY = "maven-buildtime-profiler.port";
+        final String INDEX_PROPERTY = "maven-buildtime-profiler.index";
+        final String API_KEY_PROPERTY = "maven-buildtime-profiler.apiKey";
+
+        String output = System.getProperty(OUTPUT_PROPERTY, event.getProject().getProperties().containsKey(OUTPUT_PROPERTY) ?
+            event.getProject().getProperties().getProperty(OUTPUT_PROPERTY) : "stdout");
+        String directory = System.getProperty(DIRECTORY_PROPERTY, event.getProject().getProperties().containsKey(DIRECTORY_PROPERTY) ?
+            event.getProject().getProperties().getProperty(DIRECTORY_PROPERTY) : "target");
+        String address = System.getProperty(ENDPOINT_PROPERTY, event.getProject().getProperties().containsKey(ENDPOINT_PROPERTY) ?
+            event.getProject().getProperties().getProperty(ENDPOINT_PROPERTY) : "elasticsearch");
+        int port = Integer.parseInt(System.getProperty(PORT_PROPERTY, event.getProject().getProperties().containsKey(PORT_PROPERTY) ?
+            event.getProject().getProperties().getProperty(PORT_PROPERTY) : "9200"));
+        String index = System.getProperty(INDEX_PROPERTY, event.getProject().getProperties().containsKey(INDEX_PROPERTY) ?
+            event.getProject().getProperties().getProperty(INDEX_PROPERTY) : "maven-buildtime-profiler");
+        String apiKey = System.getProperty(API_KEY_PROPERTY, event.getProject().getProperties().containsKey(API_KEY_PROPERTY) ?
+            event.getProject().getProperties().getProperty(API_KEY_PROPERTY) : System.getenv("MAVEN_BUILDTIME_PROFILER_KEY"));
 
         String filename = null;
         String body = null;
@@ -440,9 +449,7 @@ public class BuildTimeProfiler
 
         if (filename != null && body != null)
         {
-            File dest = event.getProject().getProperties().containsKey("maven-buildtime-profiler.directory") ?
-                new File(event.getProject().getProperties().getProperty("maven-buildtime-profiler.directory"), filename) :
-                new File("target/", filename);
+            File dest = new File(directory, filename);
 
             try (FileWriter file = new FileWriter(dest))
             {
